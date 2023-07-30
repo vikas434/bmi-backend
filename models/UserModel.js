@@ -5,9 +5,7 @@ const userSchema = mongoose.Schema({
   age: { type: Number },
   gender: { type: String },
   phoneNumber: { type: String, required: true },
-  otp: { type: Number },
-  optExpiry: { type: Number },
-  isRegisterd: { type: Boolean, required: true },
+  isRegisterd: { type: Boolean, required: true, default: false },
 });
 
-export default mongoose.model("user", userSchema);
+export default mongoose.model("User", userSchema);

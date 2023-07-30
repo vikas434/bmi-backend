@@ -1,8 +1,14 @@
 import { Router } from "express";
-import { login } from "../controllers/UserController.js";
+import {
+  sendOtp,
+  verifyOtp,
+  registerUser,
+} from "../controllers/UserController.js";
 
 const router = Router();
 
-router.post("/", login);
+router.post("/sendOtp", sendOtp);
+router.post("/verifyOtp", verifyOtp);
+router.put("/:id", registerUser);
 
 export default router;

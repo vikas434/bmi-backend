@@ -1,64 +1,85 @@
 import otpGenerator from "otp-generator";
-import userModel from "../models/UserModel.js";
 import twilio from "twilio";
+import OtpModel from "../models/OtpModel.js";
+import UserModel from "../models/UserModel.js";
+import dotenv from "dotenv";
 
-const accountSid = "YOUR_TWILIO_ACCOUNT_SID";
-const authToken = "YOUR_TWILIO_AUTH_TOKEN";
-const twilioPhoneNumber = "YOUR_TWILIO_PHONE_NUMBER";
+dotenv.config();
+
+const accountSid = process.env.TWILIO_SID;
+const authToken = process.env.TWILIO_TOKEN;
+const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
 
 const client = twilio(accountSid, authToken);
 
-export const login = async (req, res) => {
+export const sendOtp = async (req, res) => {
   try {
+    console.log(req.body);
     const { number } = req.body;
-    const user = await userModel.findOne({ phoneNumber: number });
     const otp = otpGenerator.generate(6, {
       upperCaseAlphabets: false,
       specialChars: false,
     });
-    if (user) {
-      user.otp = otp;
-      user.optExpiry = Date.now() + 5 * 60 * 1000;
-      await user.save();
+    const otpVerify = await OtpModel.create({
+      phoneNumber: number,
+      otp: otp,
+      otpExpiry: Date.now() + 5 * 60 * 1000,
+    });
 
-      // Send the OTP via SMS using Twilio
-      await client.messages.create({
-        body: `Your OTP is: ${otp}`,
-        from: twilioPhoneNumber,
-        to: number,
-      });
-
-      res.status(200).json({ message: "OTP sent successfully" });
-    } else {
-      const newUser = await userModel.create({ phoneNumber: number });
-      newUser;
-      res.status(200).json({ message: "User created successfully" });
-    }
+    // Send the OTP via SMS using Twilio
+    await client.messages.create({
+      body: `Your OTP is: ${otp}`,
+      from: twilioPhoneNumber,
+      to: number,
+    });
+    await otpVerify.save();
+    res.status(200).json({ status: "ok" });
   } catch (error) {
-    res.status(500).json({ error: "Something went wrong" });
+    console.log(error);
+    res.status(500).json({ error: "Something went wrong", status: "bad" });
   }
 };
 
-export const otpVerification = async (req, res) => {
+export const verifyOtp = async (req, res) => {
   try {
     const { number, otp } = req.body;
-    const user = await userModel.findOne({
+    const otpVerify = await OtpModel.findOne({
       phoneNumber: number,
       otp: otp,
-      optExpiry: { $gt: Date.now() },
     });
-
+    if (otpVerify.otpExpiry < Date.now())
+      return res.status(500).json({ status: "bad", message: "Otp expired" });
+    if (otpVerify.otp != otp)
+      return res.status(500).json({ status: "bad", message: "Wrong Otp" });
+    const user = await UserModel.findOne({ phoneNumber: number });
     if (user) {
-      user.otp = undefined;
-      user.optExpiry = undefined;
-      user.isRegistered = true;
-      await user.save();
-
-      res.status(200).json({ message: "OTP verified successfully" });
+      res.status(200).json({ status: "ok", user: user });
     } else {
-      res.status(400).json({ error: "Invalid OTP or OTP expired" });
+      const newUser = await UserModel.create({ phoneNumber: number });
+      await newUser.save();
+      res.status(201).json({ status: "ok", user: newUser });
     }
   } catch (error) {
-    res.status(500).json({ error: "Something went wrong" });
+    res.status(500).json({ status: "bad", error: "Something went wrong" });
+  }
+};
+
+export const registerUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, age, gender } = req.body;
+
+    const user = await UserModel.findById(id);
+    if (!user)
+      return res.status(400).json({ status: "bad", message: "No user found" });
+
+    user.name = name;
+    user.age = age;
+    user.gender = gender;
+    user.isRegisterd = true;
+    await user.save();
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(400).json({ status: "bad", error: error.message });
   }
 };
