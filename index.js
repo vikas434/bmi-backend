@@ -19,6 +19,9 @@ const server = createServer(app);
 const port = process.env.PORT || 5000;
 
 app.use("/api/v1/auth", UserRoutes);
+app.get("/", (req, res) => {
+  res.json("Working server");
+});
 
 mongoose
   .connect(process.env.MONGO_URL)
