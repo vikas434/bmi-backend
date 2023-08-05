@@ -17,6 +17,7 @@ export const sendOtp = async (req, res) => {
     console.log(req.body);
     const { number } = req.body;
     const otp = otpGenerator.generate(6, {
+      lowerCaseAlphabets: false,
       upperCaseAlphabets: false,
       specialChars: false,
     });
