@@ -14,25 +14,25 @@ const client = twilio(accountSid, authToken);
 
 export const sendOtp = async (req, res) => {
   try {
-    console.log(req.body);
     const { number } = req.body;
     const otp = otpGenerator.generate(6, {
       lowerCaseAlphabets: false,
       upperCaseAlphabets: false,
       specialChars: false,
     });
+
+    await client.messages.create({
+      body: `Your OTP is: ${otp}`,
+      from: twilioPhoneNumber,
+      to: number,
+    });
+
     const otpVerify = await OtpModel.create({
       phoneNumber: number,
       otp: otp,
       otpExpiry: Date.now() + 5 * 60 * 1000,
     });
 
-    // Send the OTP via SMS using Twilio
-    await client.messages.create({
-      body: `Your OTP is: ${otp}`,
-      from: twilioPhoneNumber,
-      to: number,
-    });
     await otpVerify.save();
     res.status(200).json({ status: "ok" });
   } catch (error) {
@@ -44,15 +44,22 @@ export const sendOtp = async (req, res) => {
 export const verifyOtp = async (req, res) => {
   try {
     const { number, otp } = req.body;
+    console.log(req.body);
     const otpVerify = await OtpModel.findOne({
       phoneNumber: number,
       otp: otp,
     });
+
     if (otpVerify.otpExpiry < Date.now())
       return res.status(500).json({ status: "bad", message: "Otp expired" });
+
     if (otpVerify.otp != otp)
       return res.status(500).json({ status: "bad", message: "Wrong Otp" });
+
+    await OtpModel.findByIdAndDelete(otpVerify._id);
+
     const user = await UserModel.findOne({ phoneNumber: number });
+
     if (user) {
       res.status(200).json({ status: "ok", user: user });
     } else {
@@ -61,6 +68,7 @@ export const verifyOtp = async (req, res) => {
       res.status(201).json({ status: "ok", user: newUser });
     }
   } catch (error) {
+    console.log(error);
     res.status(500).json({ status: "bad", error: "Something went wrong" });
   }
 };
