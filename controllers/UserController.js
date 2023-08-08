@@ -87,7 +87,7 @@ export const registerUser = async (req, res) => {
     user.gender = gender;
     user.isRegisterd = true;
     await user.save();
-    res.status(200).json(user);
+    res.status(200).json({ status: "ok", user });
   } catch (error) {
     res.status(400).json({ status: "bad", error: error.message });
   }
